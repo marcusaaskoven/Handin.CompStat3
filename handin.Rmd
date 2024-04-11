@@ -1,0 +1,17 @@
+---
+title: "Untitled"
+author: "Marcus"
+date: "2024-04-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+red <- read.csv("Red.csv")
+white <- read.csv("White.csv")
+rose <- read.csv("Rose.csv")
+sparkling <- read.csv("Sparkling.csv")
+```
