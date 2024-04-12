@@ -12,14 +12,14 @@ First load the following libraries
 ```{r}
 library(tidyverse)
 library(dplyr)
+library(rsample)
+library(ranger)
 ```
 The data is fetched from "https://shorturl.at/crAK3". 
 This dataset contains files for four wine styles: red, white, rosé, and sparkling. 
 Each of these has eight columns, including the ``NumberOfRatings'' column indicating the count of people who rated the wine. 
 
 ```{r}
-library(rsample)
-
 red <- read.csv("Red.csv")
 white <- read.csv("White.csv")
 rose <- read.csv("Rose.csv")
@@ -37,15 +37,18 @@ data <- rbind(red, white, rose, sparkling) %>% select(-Name); head(data)
 cell_split <- initial_split(data, prop = 1/70, strata = "Type")
 
 train_data <- training(cell_split)
-test_data <- testing(cell_split);head(train_data);head(test_data)
+test_data <- testing(cell_split);head(train_data)
 ```
 
 ```{r}
-
+rf_mod <- rand_forest(mode = "regression", trees = 1000) %>% 
+          set_engine("ranger")
+rf_fit <- rf_mod %>% fit(Rating ~ ., data = train_data); rf_fit
 ```
 
 ```{r}
-
+lm_mod <- linear_reg()
+lm_fit <-lm_mod %>% fit(Rating ~ ., data = train_data); tidy(lm_fit)
 ```
 
 ```{r}
