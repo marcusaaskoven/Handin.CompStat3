@@ -32,7 +32,7 @@ rose$Type <- "Rose"
 sparkling$Type <- "Sparkling"
 
 data <- rbind(red, white, rose, sparkling) %>% select(-Name); head(data)
-# data <- data[complete.cases(data),]
+data <- data[complete.cases(data),]
 ```
 
 ```{r}
@@ -46,11 +46,28 @@ test_data <- testing(cell_split);head(train_data)
 rf_mod <- rand_forest(mode = "regression", trees = 1000) %>% 
           set_engine("ranger")
 rf_fit <- rf_mod %>% fit(Rating ~ ., data = train_data); rf_fit
+folds <- vfold_cv(train_data, v = 10)
+rf_wf <-
+    workflow() %>%
+    add_model(rf_mod) %>%
+    add_formula(Rating ~ .)
+rf_fit_rs <-
+    rf_wf %>%
+    fit_resamples(folds)
+collect_metrics(rf_fit_rs)
 ```
 
 ```{r}
 lm_mod <- linear_reg()
-lm_fit <-lm_mod %>% fit(Rating ~ ., data = train_data); tidy(lm_fit)
+lm_fit <- lm_mod %>% fit(Rating ~ ., data = train_data); tidy(lm_fit)
+lm_wf <-
+    workflow() %>%
+    add_model(lm_mod) %>%
+    add_formula(Rating ~ .)
+lm_fit_rs <-
+    lm_wf %>%
+    fit_resamples(folds)
+collect_metrics(lm_fit_rs)
 ```
 
 ```{r}
