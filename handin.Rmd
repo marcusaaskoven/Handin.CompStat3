@@ -32,7 +32,7 @@ rose$Type <- "Rose"
 sparkling$Type <- "Sparkling"
 
 data <- rbind(red, white, rose, sparkling) %>% select(-Name); head(data)
-data <- data[complete.cases(data),]
+# data <- data[complete.cases(data),]
 ```
 
 ```{r}
