@@ -1,6 +1,6 @@
 ---
 title: "Untitled"
-author: "Marcus"
+author: "Beate, Marcus, Jonas, Wilmer"
 date: "2024-04-11"
 output: html_document
 ---
@@ -8,6 +8,14 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+First load the following libraries
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+The data is fetched from "https://shorturl.at/crAK3". 
+This dataset contains files for four wine styles: red, white, rosé, and sparkling. 
+Each of these has eight columns, including the ``NumberOfRatings'' column indicating the count of people who rated the wine. 
 
 ```{r}
 red <- read.csv("Red.csv")
