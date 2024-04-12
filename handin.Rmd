@@ -10,8 +10,45 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(rsample)
+library(dplyr)
+
 red <- read.csv("Red.csv")
 white <- read.csv("White.csv")
 rose <- read.csv("Rose.csv")
 sparkling <- read.csv("Sparkling.csv")
+
+red$Type <- "Red"
+white$Type <- "White"
+rose$Type <- "Rose"
+sparkling$Type <- "Sparkling"
+
+data <- rbind(red, white, rose, sparkling) %>% select(-Name); head(data)
+```
+
+```{r}
+cell_split <- initial_split(data, prop = 1/70, strata = "Type")
+
+train_data <- training(cell_split)
+test_data <- testing(cell_split);head(train_data);head(test_data)
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
 ```
