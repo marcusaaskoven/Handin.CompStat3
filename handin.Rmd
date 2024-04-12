@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 First load the following libraries
 ```{r}
 library(tidyverse)
+library(tidymodels)
 library(dplyr)
 library(rsample)
 library(ranger)
@@ -31,6 +32,7 @@ rose$Type <- "Rose"
 sparkling$Type <- "Sparkling"
 
 data <- rbind(red, white, rose, sparkling) %>% select(-Name); head(data)
+data <- data[complete.cases(data),]
 ```
 
 ```{r}
