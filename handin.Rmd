@@ -15,7 +15,6 @@ library(tidymodels)
 library(dplyr)
 library(rsample)
 library(ranger)
-
 ```
 The data is fetched from "https://shorturl.at/crAK3". 
 This dataset contains files for four wine styles: red, white, rosé, and sparkling. 
@@ -33,7 +32,9 @@ rose$Type <- "Rose"
 sparkling$Type <- "Sparkling"
 
 data <- rbind(red, white, rose, sparkling) %>% select(-Name); head(data)
-data <- data[complete.cases(data),]
+# data <- data[complete.cases(data),]
+data <- data %>%
+  filter(Year != "N.V.")
 ```
 
 ```{r}
@@ -56,11 +57,14 @@ rf_fit_rs <-
     rf_wf %>%
     fit_resamples(folds)
 collect_metrics(rf_fit_rs)
+
+rf_fit <- rf_wf %>% fit(data = train_data)
 ```
 
 ```{r}
-lm_mod <- linear_reg()
+lm_mod <- linear_reg() %>% set_engine("lm")
 lm_fit <- lm_mod %>% fit(Rating ~ ., data = train_data); tidy(lm_fit)
+data <- rbind(red, white, rose, sparkling) %>% select(-Name,-Winery,-Country); head(data)
 lm_wf <-
     workflow() %>%
     add_model(lm_mod) %>%
@@ -69,10 +73,6 @@ lm_fit_rs <-
     lm_wf %>%
     fit_resamples(folds)
 collect_metrics(lm_fit_rs)
-```
-
-```{r}
-
 ```
 
 ```{r}
