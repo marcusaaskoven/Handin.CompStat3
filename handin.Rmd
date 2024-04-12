@@ -19,7 +19,6 @@ Each of these has eight columns, including the ``NumberOfRatings'' column indica
 
 ```{r}
 library(rsample)
-library(dplyr)
 
 red <- read.csv("Red.csv")
 white <- read.csv("White.csv")
