@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 First load the following libraries
-```{r}
+```{r, message=FALSE}
 library(tidyverse)
 library(tidymodels)
 library(dplyr)
@@ -31,54 +31,121 @@ white$Type <- "White"
 rose$Type <- "Rose"
 sparkling$Type <- "Sparkling"
 
-data <- rbind(red, white, rose, sparkling) %>% select(-Name); head(data)
-# data <- data[complete.cases(data),]
-data <- data %>%
-  filter(Year != "N.V.")
+data <- rbind(red, white, rose, sparkling) %>% select(-Name, -Winery, -Region)
+data$Country <- as.factor(data$Country)
+# data$Region <- as.factor(data$Region)
+# data$Winery <- as.factor(data$Winery)
+data$Year <- as.factor(data$Year)
+data$Type <- as.factor(data$Type)
+
+data <- data %>% filter(Year != "N.V."); head(data)
 ```
 
 ```{r}
-cell_split <- initial_split(data, prop = 1/70, strata = "Type")
+cell_split <- initial_split(data, prop = 3/70, strata = "Type")
 
 train_data <- training(cell_split)
-test_data <- testing(cell_split);head(train_data)
+test_data <- testing(cell_split)
 ```
 
 ```{r}
 rf_mod <- rand_forest(mode = "regression", trees = 1000) %>% 
           set_engine("ranger")
-rf_fit <- rf_mod %>% fit(Rating ~ ., data = train_data); rf_fit
-folds <- vfold_cv(train_data, v = 10)
 rf_wf <-
     workflow() %>%
     add_model(rf_mod) %>%
     add_formula(Rating ~ .)
+rf_fit <- rf_wf %>% fit(data = train_data)
+
+folds <- vfold_cv(train_data, v = 10)
 rf_fit_rs <-
     rf_wf %>%
     fit_resamples(folds)
-collect_metrics(rf_fit_rs)
-
-rf_fit <- rf_wf %>% fit(data = train_data)
+rf_metrics <- collect_metrics(rf_fit_rs);rf_metrics
 ```
 
-```{r}
+
+```{r, message=FALSE}
+lm_recipe <- recipe(Rating ~ ., data = train_data)
 lm_mod <- linear_reg() %>% set_engine("lm")
-lm_fit <- lm_mod %>% fit(Rating ~ ., data = train_data); tidy(lm_fit)
-data <- rbind(red, white, rose, sparkling) %>% select(-Name,-Winery,-Country); head(data)
-lm_wf <-
-    workflow() %>%
-    add_model(lm_mod) %>%
-    add_formula(Rating ~ .)
-lm_fit_rs <-
-    lm_wf %>%
-    fit_resamples(folds)
-collect_metrics(lm_fit_rs)
+lm_wf <- workflow() %>%
+  add_recipe(lm_recipe) %>%
+  add_model(lm_mod)
+lm_fit <- lm_wf %>% fit(data = train_data)
+lm_fit_rs <- lm_wf %>% fit_resamples(folds)
+lm_metrics <- collect_metrics(lm_fit_rs)
 ```
+Metrics comparison between random forest and linear regression.
+```{r}
 
+comparison_metrics <- bind_rows(
+  lm_metrics %>% mutate(Model = "Linear Regression"),
+  rf_metrics %>% mutate(Model = "Random Forest"));comparison_metrics
+```
+The Random Forest model has a significantly lower RMSE compared to the Linear Regression model, suggesting that it provides a more accurate prediction. \\
+```{r}
+
+# Tuning
+tune_spec <- 
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune()
+  ) %>% 
+  set_engine("rpart") %>% 
+  set_mode("regression")
+
+
+tree_grid <- grid_regular(cost_complexity(),
+                          tree_depth(),
+                          levels = 5)
+
+tune_spec <-
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune()
+  ) %>%
+  set_engine("rpart") %>%
+  set_mode("regression")
+
+tree_grid <- grid_regular(cost_complexity(),
+                          tree_depth(),
+                          levels = 5)
+
+folds <- vfold_cv(train_data)
+
+tree_wf <- workflow() %>%
+  add_model(tune_spec) %>%
+  add_formula(Rating ~ .)
+
+tree_res <- 
+  tree_wf %>% 
+  tune_grid(
+    resamples = folds,
+    grid = tree_grid
+  )
+
+collect_metrics(tree_res)
+
+tree_res %>%
+  show_best(metric = "rmse")
+
+best_tree <- tree_res %>%
+  select_best(metric = "rmse");best_tree
+
+final_wf <- 
+  tree_wf %>% 
+  finalize_workflow(best_tree); final_wf
+
+final_fit <- 
+  final_wf %>%
+  last_fit(cell_split) 
+
+final_fit %>%
+  collect_metrics()
+```
+ALSO COMMENT ON A selection of "the best" model, i.e. fine tuning the hyper-parameters, via grid search. \\
+AND A discussion about the performance of your predictive model on your test set.
 ```{r}
 
 ```
 
-```{r}
-
-```
