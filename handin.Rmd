@@ -2,7 +2,9 @@
 title: "Untitled"
 author: "Beate, Marcus, Jonas, Wilmer"
 date: "2024-04-11"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -20,6 +22,8 @@ The data is fetched from "https://shorturl.at/crAK3".
 This dataset contains files for four wine styles: red, white, rosé, and sparkling. 
 Each of these has eight columns, including the ``NumberOfRatings'' column indicating the count of people who rated the wine. 
 
+Each dataset is augmented with a "Type" column indicating the wine type, and unnecessary columns like "Name", "Winery", and "Region" are removed for analysis.
+
 ```{r}
 red <- read.csv("Red.csv")
 white <- read.csv("White.csv")
@@ -33,21 +37,19 @@ sparkling$Type <- "Sparkling"
 
 data <- rbind(red, white, rose, sparkling) %>% select(-Name, -Winery, -Region)
 data$Country <- as.factor(data$Country)
-# data$Region <- as.factor(data$Region)
-# data$Winery <- as.factor(data$Winery)
 data$Year <- as.factor(data$Year)
 data$Type <- as.factor(data$Type)
 
 data <- data %>% filter(Year != "N.V."); head(data)
 ```
-
+Here, we split the combined dataset into training and testing sets. This step ensures that our models are trained on a portion of the data and evaluated on unseen data.
 ```{r}
 cell_split <- initial_split(data, prop = 3/70, strata = "Type")
 
 train_data <- training(cell_split)
 test_data <- testing(cell_split)
 ```
-
+We construct a random forest regression model with 1000 trees and fit it to the training data. Additionally, we perform cross-validation with 10 folds to assess the model's performance across different subsets of the data.
 ```{r}
 rf_mod <- rand_forest(mode = "regression", trees = 1000) %>% 
           set_engine("ranger")
@@ -58,94 +60,98 @@ rf_wf <-
 rf_fit <- rf_wf %>% fit(data = train_data)
 
 folds <- vfold_cv(train_data, v = 10)
+
 rf_fit_rs <-
     rf_wf %>%
     fit_resamples(folds)
+
 rf_metrics <- collect_metrics(rf_fit_rs);rf_metrics
 ```
-
-
+The cross-validation results for the random forest model demonstrate a RMSE of 0.193 with a standard error of 0.007 and an R-squared of 0.601, indicating strong predictive performance.
+For comparison, we specify and fit a linear regression model to the training data. Similar to the random forest model, cross-validation is performed to compare these models performance.
 ```{r, message=FALSE}
 lm_recipe <- recipe(Rating ~ ., data = train_data)
+
 lm_mod <- linear_reg() %>% set_engine("lm")
+
 lm_wf <- workflow() %>%
   add_recipe(lm_recipe) %>%
   add_model(lm_mod)
+
 lm_fit <- lm_wf %>% fit(data = train_data)
+
 lm_fit_rs <- lm_wf %>% fit_resamples(folds)
+
 lm_metrics <- collect_metrics(lm_fit_rs)
 ```
-Metrics comparison between random forest and linear regression.
+Here, we compare the performance metrics, between the random forest and linear regression models. This comparison provides insights into which model may be more suitable for predicting wine ratings.
 ```{r}
-
 comparison_metrics <- bind_rows(
   lm_metrics %>% mutate(Model = "Linear Regression"),
   rf_metrics %>% mutate(Model = "Random Forest"));comparison_metrics
 ```
-The Random Forest model has a significantly lower RMSE compared to the Linear Regression model, suggesting that it provides a more accurate prediction. \\
+The Random Forest model has a significantly lower RMSE and higher RSQ compared to the Linear Regression model, suggesting that it provides a more accurate prediction. \\
+Moreover, we further enhance the performance of our models by fine-tuning hyperparameters. Using grid search, we can fine-tune hyperparameters and select the best model configuration. By fine-tuning the Random Forest model, we get various combinations of hyperparameters.
 ```{r}
-
-# Tuning
-tune_spec <- 
-  decision_tree(
-    cost_complexity = tune(),
-    tree_depth = tune()
-  ) %>% 
-  set_engine("rpart") %>% 
-  set_mode("regression")
-
-
-tree_grid <- grid_regular(cost_complexity(),
-                          tree_depth(),
-                          levels = 5)
-
-tune_spec <-
-  decision_tree(
-    cost_complexity = tune(),
-    tree_depth = tune()
-  ) %>%
-  set_engine("rpart") %>%
-  set_mode("regression")
-
-tree_grid <- grid_regular(cost_complexity(),
-                          tree_depth(),
-                          levels = 5)
-
-folds <- vfold_cv(train_data)
+tune_spec <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) %>%
+  set_mode("regression") %>%
+  set_engine("ranger")
 
 tree_wf <- workflow() %>%
   add_model(tune_spec) %>%
   add_formula(Rating ~ .)
 
-tree_res <- 
-  tree_wf %>% 
-  tune_grid(
-    resamples = folds,
-    grid = tree_grid
-  )
+tree_res <- tune_grid(
+  tree_wf,
+  resamples = folds,
+  grid = 20
+)
 
-collect_metrics(tree_res)
+mtry_range <- tree_res$.metrics[[1]] %>%
+  select(mtry) %>%
+  summarise(min_mtry = min(mtry),
+            max_mtry = max(mtry))
+
+min_n_range <- tree_res$.metrics[[1]] %>%
+  select(min_n) %>%
+  summarise(min_min_n = min(min_n),
+            max_min_n = max(min_n))
+
+rf_grid <- grid_regular(
+  mtry(range = mtry_range),
+  min_n(range = min_n_range),
+  levels = 5
+)
+
+tree_res <- tune_grid(
+  tree_wf,
+  resamples = folds,
+  grid = rf_grid
+)
 
 tree_res %>%
   show_best(metric = "rmse")
 
+```
+The show_best() function is used to identify the model with the lowest RMSE across different configurations. We then select the best model and perform the final fit using the optimized workflow, ensuring that the model is trained on the entire training dataset.
+
+```{r}
 best_tree <- tree_res %>%
-  select_best(metric = "rmse");best_tree
+  select_best(metric = "rmse")
 
 final_wf <- 
   tree_wf %>% 
-  finalize_workflow(best_tree); final_wf
+  finalize_workflow(best_tree)
 
 final_fit <- 
   final_wf %>%
-  last_fit(cell_split) 
+  last_fit(cell_split)
 
 final_fit %>%
   collect_metrics()
 ```
-ALSO COMMENT ON A selection of "the best" model, i.e. fine tuning the hyper-parameters, via grid search. \\
-AND A discussion about the performance of your predictive model on your test set.
-```{r}
-
-```
-
+These are the metrics of our selected configuration, which should be performing reasonably in predicting wine rating.
