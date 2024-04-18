@@ -135,7 +135,6 @@ tree_res <- tune_grid(
 
 tree_res %>%
   show_best(metric = "rmse")
-
 ```
 The show_best() function is used to identify the model with the lowest RMSE across different configurations. We then select the best model and perform the final fit using the optimized workflow, ensuring that the model is trained on the entire training dataset.
 
