@@ -91,7 +91,7 @@ comparison_metrics <- bind_rows(
   rf_metrics %>% mutate(Model = "Random Forest"));comparison_metrics
 ```
 The Random Forest model has a significantly lower RMSE and higher RSQ compared to the Linear Regression model, suggesting that it provides a more accurate prediction. \\
-Moreover, we further enhance the performance of our models by fine-tuning hyperparameters. Using grid search, we can fine-tune hyperparameters and select the best model configuration. By fine-tuning the Random Forest model, we get various combinations of hyperparameters.
+Moreover, we further enhance the performance of our models by fine-tuning hyperparameters. Using grid search, we can fine-tune hyperparameters and select the best model configuration. By fine-tuning the Random Forest model, we get various combinations of hyperparameters. # https://juliasilge.com/blog/sf-trees-random-tuning/
 ```{r}
 tune_spec <- rand_forest(
   mtry = tune(),
