@@ -12,11 +12,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 First load the following libraries
 ```{r, message=FALSE}
-library(tidyverse)
-library(tidymodels)
-library(dplyr)
-library(rsample)
-library(ranger)
+packages <- c("tidyverse", "tidymodels", "dplyr", "rsample", "ranger", "ggplot2")
+
+for (package in packages) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package)
+    library(package, character.only = TRUE)
+  }
+}
 ```
 The data is fetched from "https://shorturl.at/crAK3". 
 This dataset contains files for four wine styles: red, white, rosé, and sparkling. 
@@ -40,34 +43,49 @@ data$Country <- as.factor(data$Country)
 data$Year <- as.factor(data$Year)
 data$Type <- as.factor(data$Type)
 
-data <- data %>% filter(Year != "N.V."); head(data)
+data <- data %>% filter(Year != "N.V.")
+head(data)
+
+wine_colors <- c(
+  "Red" = "#800020",
+  "White" = "#FFFDD0",
+  "Rose" = "#FFB6C1",
+  "Sparkling" = "#b1dffc"
+)
+ggplot(data, aes(x = Type, y = Rating, fill = Type)) +
+  geom_boxplot() +
+  scale_fill_manual(values = wine_colors) +
+  labs(x = "Wine Type", y = "Rating", title = "Boxplots of Ratings by Wine Type") +
+  theme_minimal()
 ```
 Here, we split the combined dataset into training and testing sets. This step ensures that our models are trained on a portion of the data and evaluated on unseen data.
 ```{r}
-cell_split <- initial_split(data, prop = 3/70, strata = "Type")
+set.seed(123)
+cell_split <- initial_split(data, prop = 3 / 70, strata = "Type")
 
 train_data <- training(cell_split)
 test_data <- testing(cell_split)
 ```
 We construct a random forest regression model with 1000 trees and fit it to the training data. Additionally, we perform cross-validation with 10 folds to assess the model's performance across different subsets of the data.
 ```{r}
-rf_mod <- rand_forest(mode = "regression", trees = 1000) %>% 
-          set_engine("ranger")
+rf_mod <- rand_forest(mode = "regression", trees = 1000) %>%
+  set_engine("ranger")
 rf_wf <-
-    workflow() %>%
-    add_model(rf_mod) %>%
-    add_formula(Rating ~ .)
+  workflow() %>%
+  add_model(rf_mod) %>%
+  add_formula(Rating ~ .)
 rf_fit <- rf_wf %>% fit(data = train_data)
 
 folds <- vfold_cv(train_data, v = 10)
 
 rf_fit_rs <-
-    rf_wf %>%
-    fit_resamples(folds)
+  rf_wf %>%
+  fit_resamples(folds)
 
-rf_metrics <- collect_metrics(rf_fit_rs);rf_metrics
+rf_metrics <- collect_metrics(rf_fit_rs)
+rf_metrics
 ```
-The cross-validation results for the random forest model demonstrate a RMSE of 0.193 with a standard error of 0.007 and an R-squared of 0.601, indicating strong predictive performance.
+The cross-validation results for the random forest model demonstrate a RMSE of 0.207 with a standard error of 0.00593 and an R-squared of 0.495, indicating strong predictive performance.
 For comparison, we specify and fit a linear regression model to the training data. Similar to the random forest model, cross-validation is performed to compare these models performance.
 ```{r, message=FALSE}
 lm_recipe <- recipe(Rating ~ ., data = train_data)
@@ -88,9 +106,11 @@ Here, we compare the performance metrics, between the random forest and linear r
 ```{r}
 comparison_metrics <- bind_rows(
   lm_metrics %>% mutate(Model = "Linear Regression"),
-  rf_metrics %>% mutate(Model = "Random Forest"));comparison_metrics
+  rf_metrics %>% mutate(Model = "Random Forest")
+)
+comparison_metrics
 ```
-The Random Forest model has a significantly lower RMSE and higher RSQ compared to the Linear Regression model, suggesting that it provides a more accurate prediction. \\
+The Random Forest model has a lower RMSE and higher RSQ compared to the Linear Regression model, suggesting that it provides a more accurate prediction. \\
 Moreover, we further enhance the performance of our models by fine-tuning hyperparameters. Using grid search, we can fine-tune hyperparameters and select the best model configuration. By fine-tuning the Random Forest model, we get various combinations of hyperparameters. # https://juliasilge.com/blog/sf-trees-random-tuning/
 ```{r}
 tune_spec <- rand_forest(
@@ -113,13 +133,17 @@ tree_res <- tune_grid(
 
 mtry_range <- tree_res$.metrics[[1]] %>%
   select(mtry) %>%
-  summarise(min_mtry = min(mtry),
-            max_mtry = max(mtry))
+  summarise(
+    min_mtry = min(mtry),
+    max_mtry = max(mtry)
+  )
 
 min_n_range <- tree_res$.metrics[[1]] %>%
   select(min_n) %>%
-  summarise(min_min_n = min(min_n),
-            max_min_n = max(min_n))
+  summarise(
+    min_min_n = min(min_n),
+    max_min_n = max(min_n)
+  )
 
 rf_grid <- grid_regular(
   mtry(range = mtry_range),
@@ -142,11 +166,11 @@ The show_best() function is used to identify the model with the lowest RMSE acro
 best_tree <- tree_res %>%
   select_best(metric = "rmse")
 
-final_wf <- 
-  tree_wf %>% 
+final_wf <-
+  tree_wf %>%
   finalize_workflow(best_tree)
 
-final_fit <- 
+final_fit <-
   final_wf %>%
   last_fit(cell_split)
 
