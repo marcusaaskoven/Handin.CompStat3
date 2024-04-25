@@ -61,7 +61,7 @@ ggplot(data, aes(x = Type, y = Rating, fill = Type)) +
 Here, we split the combined dataset into training and testing sets. This step ensures that our models are trained on a portion of the data and evaluated on unseen data.
 ```{r}
 set.seed(123)
-cell_split <- initial_split(data, prop = 3 / 70, strata = "Type")
+cell_split <- initial_split(data, prop = 1 / 7, strata = "Type")
 
 train_data <- training(cell_split)
 test_data <- testing(cell_split)
@@ -85,7 +85,7 @@ rf_fit_rs <-
 rf_metrics <- collect_metrics(rf_fit_rs)
 rf_metrics
 ```
-The cross-validation results for the random forest model demonstrate a RMSE of 0.207 with a standard error of 0.00593 and an R-squared of 0.495, indicating strong predictive performance.
+The cross-validation results for the random forest model demonstrate a RMSE of 0.19 with a standard error of 0.0032 and an R-squared of 0.576, indicating strong predictive performance.
 For comparison, we specify and fit a linear regression model to the training data. Similar to the random forest model, cross-validation is performed to compare these models performance.
 ```{r, message=FALSE}
 lm_recipe <- recipe(Rating ~ ., data = train_data)
@@ -110,8 +110,8 @@ comparison_metrics <- bind_rows(
 )
 comparison_metrics
 ```
-The Random Forest model has a lower RMSE and higher RSQ compared to the Linear Regression model, suggesting that it provides a more accurate prediction. \\
-Moreover, we further enhance the performance of our models by fine-tuning hyperparameters. Using grid search, we can fine-tune hyperparameters and select the best model configuration. By fine-tuning the Random Forest model, we get various combinations of hyperparameters. # https://juliasilge.com/blog/sf-trees-random-tuning/
+The Random Forest model has a lower RMSE and higher RSQ compared to the Linear Regression model, suggesting that it provides a more accurate prediction.
+Moreover, we further enhance the performance of our models by fine-tuning hyperparameters. Using grid search, we can fine-tune hyperparameters and select the best model configuration. By fine-tuning the Random Forest model, we get various combinations of hyperparameters.
 ```{r}
 tune_spec <- rand_forest(
   mtry = tune(),
